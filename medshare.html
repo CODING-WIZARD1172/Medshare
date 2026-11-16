@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedShare Smart Bin Console</title>
+<style>
+:root{--bg:#fbf8f6;--surface:#fff;--ink:#241b19;--mute:#6b5f5b;--line:#e4dad5;--red:#b80000;--org:#e8601c;--ok:#1d7a46;--warn:#b86e00;--bad:#b80000;--r:6px}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#171211;--surface:#211a19;--ink:#f3ebe8;--mute:#b3a6a1;--line:#3a2f2d;--red:#ff5a4d;--org:#ff8a4c;--ok:#4cc27d;--warn:#f0a030;--bad:#ff6b5e}}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;font:15px/1.5 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+header{border-bottom:3px solid var(--red);background:var(--surface)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+header .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding-top:12px;padding-bottom:10px}
+h1{font-size:22px;margin:0;letter-spacing:-.3px}h1 span{color:var(--red)}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+nav button{border:0;background:none;color:var(--mute);font:inherit;font-weight:600;padding:8px 12px;border-bottom:3px solid transparent;cursor:pointer}
+nav button.on{color:var(--red);border-color:var(--red)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--org);outline-offset:2px}
+main{padding:20px 0 60px}
+section{display:none}section.on{display:block}
+.grid{display:grid;gap:16px}
+.two{grid-template-columns:1fr 1fr}
+@media(max-width:800px){.two{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+h2{font-size:17px;margin:0 0 10px}h3{font-size:14px;margin:14px 0 6px;color:var(--mute)}
+label{display:block;font-size:13px;color:var(--mute);margin:8px 0 3px}
+input,select,textarea{width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg);color:var(--ink)}
+textarea{min-height:90px;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.btn{font:inherit;font-weight:600;border:0;border-radius:var(--r);padding:9px 14px;background:var(--red);color:#fff;cursor:pointer}
+.btn.alt{background:none;color:var(--red);border:1px solid var(--red)}
+.btn:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.row>*{flex:0 0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{flex:1;padding:7px;border:1px solid var(--line);background:none;color:var(--ink);border-radius:var(--r);font:inherit;cursor:pointer}
+.tabs button.on{background:var(--red);color:#fff;border-color:var(--red)}
+canvas,video{width:100%;max-height:300px;object-fit:contain;background:#0002;border-radius:var(--r);display:block}
+canvas{max-height:none;height:auto;touch-action:none;cursor:crosshair}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--org);border-radius:var(--r);padding:10px 12px}
+.stat b{display:block;font-size:26px;line-height:1.1}.stat small{color:var(--mute)}
+.stat.red{border-left-color:var(--bad)}.stat.green{border-left-color:var(--ok)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--org);color:#fff;font-weight:600;white-space:nowrap}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.t-bad{color:var(--bad)}.t-warn{color:var(--warn)}.t-ok{color:var(--ok)}
+.msg{font-size:13px;color:var(--mute);margin-top:8px;min-height:20px}
+pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px;font-size:12px;max-height:150px;overflow:auto;margin:0}
+.verdict{border-left:5px solid var(--org);padding:8px 12px;background:var(--bg);margin-top:10px}
+@media print{header,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0}th{background:#eee;color:#000}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Med<span>Share</span> Smart Bin Console</h1>
+<nav id="nav">
+<button data-p="scan" class="on">Scan</button><button data-p="inv">Inventory</button><button data-p="rep">Report</button><button data-p="hw">Hardware setup</button>
+</nav></div></header>
+
+<main class="wrap">
+
+<section id="scan" class="on">
+<div class="stats" id="stats"></div>
+<div class="card" style="margin-bottom:16px">
+<h2>AI reader settings</h2>
+<div class="grid" style="grid-template-columns:1fr 2fr 1fr">
+<div><label for="aiProv">Provider</label><select id="aiProv"><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select></div>
+<div><label for="aiKey">API key</label><input id="aiKey" type="password" autocomplete="off" placeholder="Paste your key here"></div>
+<div><label for="aiModel">Model</label><input id="aiModel"></div></div>
+<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="aiRemember" style="width:auto"> Remember the key in this browser</label>
+<div class="msg">The photo is sent to the provider you choose. Anyone who opens this file on your computer can see a saved key, so never share or upload the file with a key in it. Gemini keys come free from Google AI Studio. Claude keys come from the Anthropic Console and need API credits, separate from a claude.ai subscription.</div>
+</div>
+<div class="grid two">
+<div class="card">
+<h2>1. Capture the medicine</h2>
+<div class="tabs" id="src">
+<button data-s="esp" class="on">ESP32-CAM</button><button data-s="up">Upload photo</button><button data-s="cam">Webcam</button>
+</div>
+<div id="srcEsp"><label for="espUrl">ESP32-CAM address (the device shows it in the serial monitor)</label>
+<input id="espUrl" placeholder="http://192.168.1.50" value="">
+<div class="row"><button class="btn" id="btnEsp">Capture from bin</button>
+<label style="margin:0"><input type="checkbox" id="auto" style="width:auto"> Auto-capture every 5 s</label></div></div>
+<div id="srcUp" hidden><label for="file">Photo of the strip or box</label><input type="file" id="file" accept="image/*"></div>
+<div id="srcCam" hidden><video id="vid" autoplay playsinline muted></video><div class="row"><button class="btn" id="btnCam">Take snapshot</button></div></div>
+<h3>Image used for analysis</h3>
+<canvas id="cv" width="640" height="360"></canvas>
+<div class="msg">Tip: if the expiry line is hard to read, drag a box around it. The page reads that box for dates and batch, and the whole image for the medicine name.</div>
+<div class="row"><button class="btn alt" id="btnRot">Rotate 90°</button><button class="btn alt" id="btnClr">Clear selection</button>
+<label style="margin:0"><input type="checkbox" id="autoRot" style="width:auto" checked> Auto-find text direction</label></div>
+<div class="row"><button class="btn" id="btnAI">2. Read with AI (recommended)</button><button class="btn alt" id="btnRun">Read with OCR instead</button></div>
+<div class="msg" id="prog">Waiting for an image.</div>
+</div>
+
+<div class="card">
+<h2>3. Review the extracted text</h2>
+<label for="raw">OCR text (edit it, or paste text and press Analyse)</label>
+<textarea id="raw" placeholder="Example: PARACETAMOL TABLETS IP 500 mg&#10;B.No. PT2417  Mfg: 03/2025  Exp: 02/2027  MRP Rs 32.50"></textarea>
+<div class="row"><button class="btn alt" id="btnTxt">Analyse text</button><button class="btn alt" id="btnDemo">Load sample</button></div>
+<h3>Barcode</h3><pre id="bar">Not scanned.</pre>
+<h3>Detected details (correct anything the OCR got wrong)</h3>
+<div class="grid" style="grid-template-columns:1fr 1fr">
+<div><label for="fName">Medicine</label><input id="fName"></div>
+<div><label for="fStr">Strength</label><input id="fStr"></div>
+<div><label for="fForm">Form</label><select id="fForm"><option>Tablet</option><option>Capsule</option><option>Syrup</option><option>Injection</option><option>Ointment</option><option>Drops</option><option>Other</option></select></div>
+<div><label for="fQty">Quantity</label><input id="fQty" type="number" min="1" value="1"></div>
+<div><label for="fBatch">Batch no.</label><input id="fBatch"></div>
+<div><label for="fMrp">MRP (₹)</label><input id="fMrp"></div>
+<div><label for="fMfg">Manufactured</label><input id="fMfg" type="date"></div>
+<div><label for="fExp">Expiry</label><input id="fExp" type="date"></div>
+</div>
+<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fSealed" style="width:auto"> Packaging is sealed and undamaged</label>
+<div class="verdict" id="verdict">Verdict appears after analysis.</div>
+<div class="row"><button class="btn" id="btnSave">Log this medicine</button><button class="btn alt" id="btnClrForm">Clear form</button></div>
+</div>
+</div>
+</section>
+
+<section id="inv">
+<div class="stats" id="stats2"></div>
+<div class="card"><div class="row" style="margin:0 0 10px">
+<h2 style="margin:0">Collected medicines</h2>
+<select id="flt" style="width:auto;margin-left:auto"><option value="all">All</option><option value="exp">Expired</option><option value="near">Near expiry</option><option value="don">Donation eligible</option></select>
+<button class="btn alt" id="btnCsv">Download CSV</button></div>
+<div class="tbl"><table><thead><tr><th>Logged</th><th>Medicine</th><th>Batch</th><th>Qty</th><th>Expiry</th><th>Status</th><th>Action</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div>
+</section>
+
+<section id="rep">
+<div class="card" id="repBox">
+<div class="row noprint" style="margin:0 0 10px"><h2 style="margin:0">Compliance and ESG report</h2>
+<button class="btn" id="btnPrint" style="margin-left:auto">Print or save as PDF</button></div>
+<div id="repBody"></div></div>
+</section>
+
+<section id="hw">
+<div class="card">
+<h2>Connect the ESP32-CAM</h2>
+<p>The console fetches one JPEG from the bin’s camera and runs OCR and barcode reading in the browser. Flash the standard <b>CameraWebServer</b> example (or any sketch that serves <code>/capture</code>) and use these settings:</p>
+<ul>
+<li>Open this file from your laptop or phone while on the same Wi-Fi as the ESP32-CAM, then paste the camera’s address on the Scan tab.</li>
+<li>In the sketch, add the header <code>Access-Control-Allow-Origin: *</code> to the <code>/capture</code> response so the browser may read the image.</li>
+<li>Mount the camera 12 to 15 cm above a matte, light surface, with an LED strip beside it so glare stays off the foil. Use the highest resolution the board supports (SXGA or UXGA) for small expiry text.</li>
+<li>Browser OCR needs internet on first use to download the OCR engine and English data.</li>
+</ul>
+<h3>How the analysis works</h3>
+<ol>
+<li>Image is converted to high-contrast grayscale and upscaled.</li>
+<li>Barcode is read first. GS1 codes on newer packs can carry GTIN, batch and expiry directly.</li>
+<li>OCR text is searched for expiry, manufacture date, batch, MRP, strength, and form.</li>
+<li>Rules decide the route: expired goes to compliant disposal, sealed with 6 months or more left goes to donation check, anything else is kept as near expiry or normal stock.</li>
+</ol></div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let inv=[];try{inv=JSON.parse(localStorage.getItem('medshare')||'[]')}catch(e){}
+const store=()=>{try{localStorage.setItem('medshare',JSON.stringify(inv))}catch(e){}};
+const CO2_RECYCLE=0.05, CO2_DONATE=0.25; // kg CO2e per item: illustrative assumptions
+const cv=$('#cv'),cx=cv.getContext('2d');let hasImg=false,timer=null,stream=null;
+
+// navigation
+$('#nav').onclick=e=>{const p=e.target.dataset.p;if(!p)return;$$('#nav button').forEach(b=>b.classList.toggle('on',b===e.target));$$('main>section').forEach(s=>s.classList.toggle('on',s.id===p));render()};
+$('#src').onclick=e=>{const s=e.target.dataset.s;if(!s)return;$('#prog').textContent='';$$('#src button').forEach(b=>b.classList.toggle('on',b===e.target));
+ $('#srcEsp').hidden=s!=='esp';$('#srcUp').hidden=s!=='up';$('#srcCam').hidden=s!=='cam';
+ if(s==='cam')startCam();else stopCam();};
+
+// image sources
+let work=document.createElement('canvas'),sel=null,drag=null;
+function show(){cv.width=work.width;cv.height=work.height;cx.drawImage(work,0,0);
+ if(sel){cx.lineWidth=Math.max(2,cv.width/300);cx.strokeStyle='#ff3b30';cx.fillStyle='rgba(255,59,48,.15)';cx.fillRect(sel.x,sel.y,sel.w,sel.h);cx.strokeRect(sel.x,sel.y,sel.w,sel.h)}}
+function draw(bmp){const sw=bmp.width||bmp.videoWidth,sh=bmp.height||bmp.videoHeight,w=Math.min(sw,1600),h=Math.round(w*sh/sw);
+ work=document.createElement('canvas');work.width=w;work.height=h;work.getContext('2d').drawImage(bmp,0,0,w,h);hasImg=true;sel=null;show()}
+function rot(src,deg){const o=document.createElement('canvas'),q=deg%180!==0;o.width=q?src.height:src.width;o.height=q?src.width:src.height;
+ const c=o.getContext('2d');c.translate(o.width/2,o.height/2);c.rotate(deg*Math.PI/180);c.drawImage(src,-src.width/2,-src.height/2);return o}
+function crop(src,r){const o=document.createElement('canvas');o.width=Math.round(r.w);o.height=Math.round(r.h);o.getContext('2d').drawImage(src,r.x,r.y,r.w,r.h,0,0,o.width,o.height);return o}
+function prep(c){const k=Math.min(3,Math.max(1,2000/Math.max(c.width,c.height)));const o=document.createElement('canvas');o.width=Math.round(c.width*k);o.height=Math.round(c.height*k);
+ const x=o.getContext('2d');x.imageSmoothingQuality='high';x.filter='grayscale(1) contrast(1.25)';x.drawImage(c,0,0,o.width,o.height);return o}
+const pt=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}};
+cv.onpointerdown=e=>{if(!hasImg)return;cv.setPointerCapture(e.pointerId);drag=pt(e);sel=null};
+cv.onpointermove=e=>{if(!drag)return;const p=pt(e);sel={x:Math.min(drag.x,p.x),y:Math.min(drag.y,p.y),w:Math.abs(p.x-drag.x),h:Math.abs(p.y-drag.y)};show()};
+cv.onpointerup=()=>{if(!drag)return;drag=null;if(sel&&(sel.w<20||sel.h<20))sel=null;show();$('#prog').textContent=sel?'Area selected. OCR will read this area for dates and the full image for the name.':''};
+$('#btnRot').onclick=()=>{if(!hasImg)return;work=rot(work,90);sel=null;show()};
+$('#btnClr').onclick=()=>{sel=null;show()};
+async function grab(){const u=$('#espUrl').value.trim().replace(/\/$/,'');if(!u){$('#prog').textContent='Enter the ESP32-CAM address first.';return false}
+ try{$('#prog').textContent='Capturing…';const r=await fetch(u+'/capture?t='+Date.now());if(!r.ok)throw 0;draw(await createImageBitmap(await r.blob()));$('#prog').textContent='Image captured.';return true}
+ catch(e){$('#prog').textContent='Could not reach the camera. Check the address, the Wi-Fi network, and the CORS header (see Hardware setup).';return false}}
+$('#btnEsp').onclick=grab;
+$('#auto').onchange=e=>{clearInterval(timer);if(e.target.checked)timer=setInterval(async()=>{if(await grab())run()},5000)};
+$('#file').onchange=async e=>{const f=e.target.files[0];if(f){draw(await createImageBitmap(f));$('#prog').textContent='Photo loaded.'}};
+async function startCam(){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});$('#vid').srcObject=stream}catch(e){$('#prog').textContent='Webcam is not available here. Use upload or the ESP32-CAM.'}}
+function stopCam(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null}
+$('#btnCam').onclick=()=>{if($('#vid').videoWidth){draw($('#vid'));$('#prog').textContent='Snapshot taken.'}};
+
+// analysis pipeline
+async function run(){
+ if(!hasImg){$('#prog').textContent='Capture or upload an image first.';return}
+ const b=$('#btnRun');b.disabled=true;window._gs=null;
+ try{
+  if('BarcodeDetector' in window){const d=await new BarcodeDetector().detect(work);
+   $('#bar').textContent=d.length?d.map(x=>x.format+': '+x.rawValue+gs1Text(x.rawValue)).join('\n'):'No barcode found in this image.';
+   if(d.length)window._gs=parseGS1(d[0].rawValue)}
+  else $('#bar').textContent='This browser cannot read barcodes. Use Chrome on Android or desktop.';
+ }catch(e){$('#bar').textContent='Barcode scan failed.'}
+  const angles=$('#autoRot').checked?[0,90,270,180]:[0];
+ try{
+  if(typeof Tesseract==='undefined')throw new Error('OCR engine not loaded. Connect to the internet and reload.');
+  const worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status&&m.progress)$('#prog').textContent=m.status+' '+Math.round(m.progress*100)+'%'}});
+  await worker.setParameters({tessedit_pageseg_mode:'11',user_defined_dpi:'300'});
+  const read=async img=>{const out=[];
+   for(const a of angles){const r=await worker.recognize(prep(a?rot(img,a):img));
+    const kw=(r.data.text.match(/exp|batch|b\.?\s?no|mfg|mfd|mrp|m\.r\.p|date/gi)||[]).length;
+    out.push({a,text:r.data.text,conf:r.data.confidence,kw,score:r.data.confidence+25*Math.min(kw,4)})}
+   out.sort((x,y)=>y.score-x.score);
+   return{text:out.filter((o,i)=>i===0||o.kw>0||o.conf>45).map(o=>o.text.trim()).join('\n'),conf:out[0].conf}};
+  const parts=[];let info;
+  if(sel){$('#prog').textContent='Reading the selected area (dates, batch)…';info=await read(crop(work,sel));parts.push(info.text);
+   $('#prog').textContent='Reading the full image (medicine name)…';parts.push((await read(work)).text)}
+  else{info=await read(work);parts.push(info.text)}
+  await worker.terminate();
+  $('#raw').value=parts.join('\n').trim();
+  $('#prog').textContent='OCR finished (confidence '+Math.round(info.conf)+'%). '+(info.conf<55?'Low confidence: drag a box around just the expiry line, or move the camera closer. ':'')+'Check the fields.';
+ }catch(e){$('#prog').textContent=e.message||'OCR failed. Paste the text manually and press Analyse text.'}
+ b.disabled=false;analyse();
+}
+$('#btnRun').onclick=run;$('#btnTxt').onclick=analyse;
+$('#btnDemo').onclick=()=>{window._gs=null;$('#raw').value='PARACETAMOL TABLETS IP 500 mg\nB.No. PT2417  Mfg: 03/2025\nExp: 02/2027  MRP Rs 32.50 per strip of 10 tablets\nStore below 25°C';analyse()};
+
+// GS1 parsing: (01) GTIN, (17) expiry YYMMDD, (11) mfg, (10) batch
+function parseGS1(v){const o={};let s=v.replace(/\(|\)/g,'').replace(/^\]d2/,'');let i=0;
+ while(i<s.length){const ai=s.substr(i,2);
+  if(ai==='01'){o.gtin=s.substr(i+2,14);i+=16}
+  else if(ai==='17'||ai==='11'){const d=s.substr(i+2,6);const y=2000+ +d.slice(0,2),m=d.slice(2,4);let dd=d.slice(4,6);if(dd==='00')dd=String(new Date(y,+m,0).getDate());o[ai==='17'?'exp':'mfg']=`${y}-${m}-${dd.padStart(2,'0')}`;i+=8}
+  else if(ai==='10'){let e=s.indexOf('\x1d',i);if(e<0)e=s.length;o.batch=s.slice(i+2,e);i=e+1}
+  else break}
+ return o.gtin||o.exp||o.batch?o:null}
+function gs1Text(v){const g=parseGS1(v);return g?'  → GS1: '+Object.entries(g).map(([k,x])=>k+'='+x).join(', '):''}
+
+const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function iso(y,m,d){if(y<100)y+=2000;if(m<1||m>12)return'';if(!d)d=new Date(y,m,0).getDate();return`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function pdate(s){s=s.trim();let m;
+ if(m=s.match(/^(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{2,4})$/))return iso(+m[3],+m[2],+m[1]);
+ if(m=s.match(/^(\d{1,2})\s*[\/\-.]\s*(\d{2,4})$/))return iso(+m[2],+m[1]);
+ if(m=s.match(/^([A-Za-z]{3})[a-z]*[\s.,\-\/]*(\d{2,4})$/))return MON[m[1].toLowerCase()]?iso(+m[2],MON[m[1].toLowerCase()]):'';
+ return''}
+const DT='([0-3]?\\d\\s*[\\/\\-.]\\s*[01]?\\d\\s*[\\/\\-.]\\s*\\d{2,4}|[01]?\\d\\s*[\\/\\-.]\\s*\\d{2,4}|[A-Za-z]{3,9}[\\s.,\\-\\/]*\\d{2,4})';
+function find(t,keys){const m=t.match(new RegExp('(?:'+keys+')\\s*[:\\-.]?\\s*'+DT,'i'));return m?pdate(m[1]):''}
+function analyse(){
+ const t=$('#raw').value.replace(/[|]/g,'I');const gs=window._gs||{};
+ let exp=gs.exp||find(t,'EXP(?:IRY)?\\.?(?:\\s*DATE)?|USE\\s*BEFORE|BEST\\s*BEFORE');
+ if(!exp){const all=[...t.matchAll(/\b(\d{1,2}\s*[\/\-.]\s*\d{2,4})\b/g)].map(x=>pdate(x[1])).filter(Boolean).sort();if(all.length)exp=all[all.length-1]}
+ const mfg=gs.mfg||find(t,'MFG|MFD|MANUF\\w*|MFG\\.?\\s*DATE|DOM');
+ const b=gs.batch||(t.match(/(?:B\.?\s*NO\.?|BATCH(?:\s*NO\.?)?|LOT)\s*[:\-.]?\s*([A-Z0-9\-]{3,})/i)||[])[1]||'';
+ const mrp=(t.match(/(?:MRP|M\.R\.P\.?)[^\d]{0,12}(\d+(?:\.\d+)?)/i)||[])[1]||'';
+ const str=(t.match(/(\d+(?:\.\d+)?\s?(?:mg|mcg|g|ml|iu))\b/i)||[])[1]||'';
+ const fm=(t.match(/(tablet|capsule|syrup|suspension|injection|ointment|cream|drops)/i)||[])[1];
+  const good=x=>{const L=(x.match(/[A-Za-z]/g)||[]).length;return L/x.length>.7&&/[A-Za-z]{4,}/.test(x)&&x.split(/\s+/).length<=9};
+ const lines=t.split(/\n/).map(x=>x.trim()).filter(x=>/^[A-Za-z][A-Za-z0-9 \-\.]{3,}/.test(x)&&!/\b(exp|mfg|mfd|batch|b\.no|mrp|price|store|keep|lic|marketed|approved|dosage|manufactured)/i.test(x)&&good(x));
+ let nm='';const ix=lines.findIndex(x=>/tablet|capsule|syrup|injection|cream/i.test(x));
+ if(ix>=0){nm=lines[ix].replace(/\s?\d+\s?(mg|mcg|ml|g)\b.*/i,'').replace(/\b(tablets?|capsules?)\b.*/i,'').trim();if(nm.length<4&&ix>0)nm=lines.slice(Math.max(0,ix-2),ix).join(' ')}else nm=lines[0]||'';
+ const set=(id,v)=>{$(id).value=v||''};
+ set('#fName',nm);set('#fStr',str);set('#fBatch',b);set('#fMrp',mrp);set('#fMfg',mfg);set('#fExp',exp);
+ if(fm){const f=fm[0].toUpperCase()+fm.slice(1).toLowerCase();const o=[...$('#fForm').options].find(x=>x.text.startsWith(f.slice(0,5)));if(o)$('#fForm').value=o.text}
+ verdict();
+}
+['fExp','fSealed'].forEach(i=>$('#'+i).addEventListener('change',verdict));
+
+function classify(exp,sealed){
+ if(!exp)return{k:'unk',label:'Expiry unknown',action:'Manual check',note:'No expiry date could be read. Enter it manually before logging.'};
+ const days=Math.floor((new Date(exp+'T23:59:59')-Date.now())/864e5);
+ if(days<0)return{k:'exp',label:'Expired',action:'Compliant disposal',note:`Expired ${-days} days ago. Route to authorised biomedical waste disposal and log it.`};
+ if(days<=180&&days>=0)return{k:'near',label:'Near expiry',action:'Use first',note:`${days} days left. Too close to expiry for donation; flag for quick use.`};
+ if(sealed)return{k:'don',label:'Donation eligible',action:'Donation check',note:`${days} days left and packaging sealed. A pharmacist must verify before redistribution.`};
+ return{k:'ok',label:'In date',action:'Keep',note:`${days} days left, but donation needs sealed packaging.`}}
+function verdict(){const c=classify($('#fExp').value,$('#fSealed').checked);const cls={exp:'t-bad',near:'t-warn',don:'t-ok',ok:'t-ok',unk:'t-warn'}[c.k];
+ $('#verdict').innerHTML=`<span class="tag ${cls}">${c.label}</span> ${c.note}`}
+
+$('#btnSave').onclick=()=>{
+ const name=$('#fName').value.trim();if(!name){$('#verdict').textContent='Enter the medicine name before logging.';return}
+ const exp=$('#fExp').value,c=classify(exp,$('#fSealed').checked);
+ inv.unshift({id:Date.now(),at:new Date().toISOString(),name,str:$('#fStr').value,form:$('#fForm').value,qty:Math.max(1,+$('#fQty').value||1),batch:$('#fBatch').value,mrp:$('#fMrp').value,mfg:$('#fMfg').value,exp,sealed:$('#fSealed').checked,gtin:(window._gs||{}).gtin||'',action:c.k==='exp'?'Pending':c.action});
+ store();window._gs=null;['fName','fStr','fBatch','fMrp','fMfg','fExp','raw'].forEach(i=>$('#'+i).value='');$('#fQty').value=1;$('#fSealed').checked=false;
+ $('#verdict').textContent='Logged. Scan the next medicine.';$('#bar').textContent='Not scanned.';render()};
+
+// inventory, stats, report
+const cls=i=>classify(i.exp,i.sealed);
+function totals(){const t={all:0,exp:0,near:0,don:0,pendExp:0,expN:0,doneExp:0,donated:0,disposed:0};
+ inv.forEach(i=>{const c=cls(i);t.all+=i.qty;if(c.k==='exp'){t.exp+=i.qty;t.expN++;if(i.action==='Pending')t.pendExp++;else t.doneExp++}
+  if(c.k==='near')t.near+=i.qty;if(c.k==='don')t.don+=i.qty;if(i.action==='Donated')t.donated+=i.qty;if(i.action==='Sent to CBWTF')t.disposed+=i.qty});
+ t.rate=t.expN?Math.round(100*t.doneExp/t.expN):100;t.co2=(t.disposed*CO2_RECYCLE+t.donated*CO2_DONATE);return t}
+function statsHtml(){const t=totals();return `<div class="stat"><b>${t.all}</b><small>Items collected</small></div><div class="stat red"><b>${t.exp}</b><small>Expired</small></div><div class="stat"><b>${t.near}</b><small>Near expiry</small></div><div class="stat green"><b>${t.don}</b><small>Donation eligible</small></div><div class="stat green"><b>${t.rate}%</b><small>Expired items with disposal recorded</small></div>`}
+const ACTS=['Pending','Sent to CBWTF','Donated','Used in clinic','Use first','Donation check','Keep','Manual check'];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function render(){
+ $('#stats').innerHTML=$('#stats2').innerHTML=statsHtml();
+ const f=$('#flt').value;const list=inv.filter(i=>f==='all'||cls(i).k===f);
+ $('#rows').innerHTML=list.length?list.map(i=>{const c=cls(i);const tc={exp:'t-bad',near:'t-warn',don:'t-ok',ok:'t-ok',unk:'t-warn'}[c.k];
+  return `<tr><td>${new Date(i.at).toLocaleDateString('en-IN')}</td><td><b>${esc(i.name)}</b><br><small>${esc(i.str)} ${esc(i.form)}</small></td><td>${esc(i.batch||'-')}</td><td>${i.qty}</td><td>${i.exp||'-'}</td><td><span class="tag ${tc}">${c.label}</span></td><td><select data-a="${i.id}">${ACTS.map(a=>`<option${a===i.action?' selected':''}>${a}</option>`).join('')}</select></td><td><button class="btn alt" data-d="${i.id}" aria-label="Delete ${esc(i.name)}">Delete</button></td></tr>`}).join(''):'<tr><td colspan="8">Nothing logged yet. Scan a medicine on the Scan tab.</td></tr>';
+ const t=totals(),now=new Date().toLocaleString('en-IN');
+ $('#repBody').innerHTML=`<p>Generated ${now}. All figures come from items logged in this console.</p>
+ <div class="stats">${statsHtml()}</div>
+ <h3>Biomedical waste compliance</h3><p>${t.expN} expired batch records, ${t.doneExp} with a disposal route recorded and ${t.pendExp} still pending. ${t.pendExp?'Complete the pending disposals before the next audit.':'No pending disposals.'}</p>
+ <h3>ESG impact (illustrative estimate)</h3><p>${t.disposed} items sent for authorised disposal and ${t.donated} items donated. Estimated emissions avoided: <b>${t.co2.toFixed(2)} kg CO₂e</b>, using ${CO2_RECYCLE} kg per disposed item and ${CO2_DONATE} kg per donated item. Replace these factors with audited values before publishing.</p>
+ <h3>Item log</h3><div class="tbl"><table><thead><tr><th>Medicine</th><th>Batch</th><th>Qty</th><th>Expiry</th><th>Status</th><th>Action</th></tr></thead><tbody>${inv.map(i=>`<tr><td>${esc(i.name)} ${esc(i.str)}</td><td>${esc(i.batch||'-')}</td><td>${i.qty}</td><td>${i.exp||'-'}</td><td>${cls(i).label}</td><td>${esc(i.action)}</td></tr>`).join('')||'<tr><td colspan="6">No records.</td></tr>'}</tbody></table></div>
+ <p style="margin-top:20px">Reviewed by: ______________________ &nbsp; Signature: ______________ &nbsp; Date: ____________</p>`}
+$('#flt').onchange=render;
+$('#rows').onchange=e=>{const id=e.target.dataset.a;if(id){const i=inv.find(x=>x.id==id);i.action=e.target.value;store();render()}};
+$('#rows').onclick=e=>{const id=e.target.dataset.d;if(id&&confirm('Delete this record?')){inv=inv.filter(x=>x.id!=id);store();render()}};
+$('#btnPrint').onclick=()=>window.print();
+$('#btnCsv').onclick=()=>{const h=['Logged','Medicine','Strength','Form','Qty','Batch','MRP','Mfg','Expiry','Status','Action','GTIN'];
+ const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+ const csv=[h.map(q).join(',')].concat(inv.map(i=>[i.at,i.name,i.str,i.form,i.qty,i.batch,i.mrp,i.mfg,i.exp,cls(i).label,i.action,i.gtin].map(q).join(','))).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='medshare-log.csv';a.click()};
+// ---------- AI reader (Gemini or Claude) ----------
+const AIM={gemini:'gemini-3.8-flash',claude:'claude-sonnet-5-5'};
+const AI_PROMPT='You are reading a photo of an Indian medicine pack (strip, box, bottle or pouch). Text may be rotated, curved, glossy or small, so read it in any orientation. Return ONLY a JSON object with these keys: name (brand or generic name), strength (for example "500 mg", combine several if printed), form (one of Tablet, Capsule, Syrup, Injection, Ointment, Drops, Other), batch, mfg (YYYY-MM-DD), exp (YYYY-MM-DD; if only month and year are printed use the last day of that month), mrp (number only), barcode (digits if a barcode number is printed), raw_text (the text you could read, kept short), uncertain (array of key names you could not read clearly). Use null for anything not visible. Never guess a date: if you cannot read it, use null.';
+try{$('#aiKey').value=localStorage.getItem('ms_key')||'';$('#aiProv').value=localStorage.getItem('ms_prov')||'gemini';$('#aiRemember').checked=!!$('#aiKey').value}catch(e){}
+$('#aiModel').value=AIM[$('#aiProv').value];
+$('#aiProv').onchange=()=>{$('#aiModel').value=AIM[$('#aiProv').value]};
+function parseJ(t){const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<0)throw new Error('The AI did not return readable data. Try again.');return JSON.parse(t.slice(a,b+1))}
+function fillAI(o){
+ const ok=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||'');
+ const set=(id,v)=>{if(v!==null&&v!==undefined&&String(v).trim()!=='')$(id).value=String(v).trim()};
+ set('#fName',o.name);set('#fStr',o.strength);set('#fBatch',o.batch);set('#fMrp',o.mrp);
+ if(ok(o.mfg))set('#fMfg',o.mfg);if(ok(o.exp))set('#fExp',o.exp);
+ const f=[...$('#fForm').options].find(x=>x.text.toLowerCase()===String(o.form||'').toLowerCase());if(f)$('#fForm').value=f.text;
+ if(o.raw_text)$('#raw').value=o.raw_text;
+ if(o.barcode)$('#bar').textContent='Printed number: '+o.barcode;
+ verdict();
+ const u=(o.uncertain||[]).join(', ');
+ $('#prog').textContent='AI finished. '+(u?'It was unsure about: '+u+'. Please check. ':'Check the fields, then log. ')+(ok(o.exp)?'':'No expiry date found: turn the pack and scan the side that shows the dates.');
+}
+$('#btnAI').onclick=async()=>{
+ if(!hasImg){$('#prog').textContent='Capture or upload an image first.';return}
+ const key=$('#aiKey').value.trim();if(!key){$('#prog').textContent='Paste your API key in the AI reader settings first.';return}
+ try{if($('#aiRemember').checked){localStorage.setItem('ms_key',key);localStorage.setItem('ms_prov',$('#aiProv').value)}else localStorage.removeItem('ms_key')}catch(e){}
+ const btn=$('#btnAI');btn.disabled=true;$('#prog').textContent='Asking the AI to read the pack…';
+ try{
+  let b64=work.toDataURL('image/jpeg',.92).split(',')[1],prov=$('#aiProv').value,model=$('#aiModel').value.trim()||AIM[prov];let txt;
+  const gcall=async m=>{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:AI_PROMPT},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}})});return{ok:r.ok,status:r.status,j:await r.json()}};
+  if(prov==='gemini'){
+   let res=await gcall(model);
+   if(!res.ok){const msg=(res.j.error&&res.j.error.message)||'';
+    if(/no longer|not found|not supported|deprecated/i.test(msg)){
+     let alt=[...msg.matchAll(/models\/([A-Za-z0-9.\-]+)/g)].map(x=>x[1]).filter(x=>x!==model).pop();
+     if(!alt){try{const l=await (await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key='+encodeURIComponent(key))).json();
+      alt=(l.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')&&/flash/i.test(m.name)&&!/lite|image|tts|live|audio/i.test(m.name)).map(m=>m.name.replace('models/','')).sort().reverse()[0]}catch(e){}}
+     if(alt){model=alt;$('#aiModel').value=alt;$('#prog').textContent='That model is retired. Switching to '+alt+'…';res=await gcall(alt)}}}
+   if(!res.ok)throw new Error((res.j.error&&res.j.error.message)||('Gemini error '+res.status));
+   txt=res.j.candidates[0].content.parts.map(x=>x.text||'').join('');
+  }else{
+   const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model,max_tokens:800,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:AI_PROMPT}]}]})});
+   const j=await r.json();if(!r.ok)throw new Error((j.error&&j.error.message)||('Claude error '+r.status));
+   txt=j.content.map(x=>x.text||'').join('');
+  }
+  fillAI(parseJ(txt));
+ }catch(e){$('#prog').textContent='AI read failed: '+(e.message||e)+' (check the key, model name and internet)'}
+ btn.disabled=false};
+$('#btnClrForm').onclick=()=>{['fName','fStr','fBatch','fMrp','fMfg','fExp','raw'].forEach(i=>$('#'+i).value='');$('#fQty').value=1;$('#fSealed').checked=false;window._gs=null;$('#bar').textContent='Not scanned.';verdict()};
+
+render();
+</script>
+</body>
+</html>
